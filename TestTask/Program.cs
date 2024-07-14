@@ -13,10 +13,10 @@
    ✓ File creation/copying/removal operations should be logged to a file and to the
    console output;
 
-   Folder paths, synchronization interval and log file path should be provided
+   ✓ Folder paths, synchronization interval and log file path should be provided
    using the command line arguments;
 
-   It is undesirable to use third-party libraries that implement folder
+   ✓ It is undesirable to use third-party libraries that implement folder
    synchronization;
 
    It is allowed (and recommended) to use external libraries implementing other
@@ -25,20 +25,10 @@
    acceptable to use a third-party (or built-in) library
 */
 
-// Inputs
-// Which folder should be looked at
-// Which folder to copy
-// Which log file
-// Interval in seconds for example
+namespace TestTask;
 
 using System.CommandLine.Builder;
 using System.CommandLine.Parsing;
-using System.Runtime.InteropServices;
-using TestTask.Classes;
-
-namespace TestTask;
-
-using System;
 using System.IO;
 using System.CommandLine;
 
@@ -53,7 +43,7 @@ class Program
         {
             IsRequired = true
         };
-        //sourceFolderOption.AddValidator(IsExistingDirectory);
+        sourceFolderOption.AddValidator(IsExistingDirectory);
 
         var replicaFolderOption = new Option<string>(
             name: "--replica",
@@ -62,51 +52,27 @@ class Program
         {
             IsRequired = true
         };
-        //replicaFolderOption.AddValidator(IsExistingDirectory);
+        replicaFolderOption.AddValidator(IsExistingDirectory);
 
         var logFileOption = new Option<string>(
             name: "--log",
-            description: "The file to keep in track the changes from source folder"
+            description: "The folder where a log file will be created to keep in track the changes from source folder"
         )
         {
             IsRequired = true
         };
-        /*
-        logFileOption.AddValidator(result =>
-        {
-            var value = result.GetValueOrDefault<string>();
-            if (string.IsNullOrEmpty(value))
-            {
-                result.ErrorMessage = "The log file path cannot be empty.";
-            }
-            else
-            {
-                var directory = Path.GetDirectoryName(value);
-                if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
-                {
-                    result.ErrorMessage = $"The directory for the log file '{value}' does not exist.";
-                }
-            }
-        });
-        */
+        
+        logFileOption.AddValidator(IsExistingDirectory);
 
         var intervalOption = new Option<int>(
             name: "--interval",
-            description: "The time in seconds that the program waits to copy the new changes"
+            description: "The time in seconds that the program waits to apply the new changes"
         )
         {
             IsRequired = true
         };
-        /*
-        intervalOption.AddValidator(result => 
-        {
-            var value = result.GetValueOrDefault<int>();
-            if (value < 1)
-            {
-                result.ErrorMessage = "The interval must be greater than or equal to 1.";
-            }
-        });
-        */
+        intervalOption.AddValidator(IsValidInterval);
+        
 
         var rootCommand = new RootCommand("TestTask")
         {
@@ -116,8 +82,7 @@ class Program
             intervalOption
         };
 
-        rootCommand.SetHandler(MainOperations.MainCommand, sourceFolderOption, replicaFolderOption, logFileOption,
-            intervalOption);
+        rootCommand.SetHandler(MainOperations.MainCommand, sourceFolderOption, replicaFolderOption, logFileOption, intervalOption);
 
         var commandLineBuilder = new CommandLineBuilder(rootCommand);
 
@@ -125,57 +90,25 @@ class Program
 
         commandLineBuilder.UseDefaults();
         Parser parser = commandLineBuilder.Build();
-
+        
         await parser.InvokeAsync(args);
     }
 
-    // The path parameter is permitted to specify relative or absolute path information.
-    // Relative path information is interpreted as relative to the current working directory.
     private static void IsExistingDirectory(OptionResult result)
     {
-        // IsItWellFormatted
-        // We don't care if it is full or relative
         var exists = Directory.Exists(result.GetValueOrDefault<string>());
-        
-    }
-    
-    // Windows
-    // C:\Documents\Newsletters\Summer2018.pdf
-    // \Program Files\Custom Utilities\StringFinder.exe
-    // 2018\January.xlsx
-    
-    // Unix
-    // ./Documents/Summer2018.pdf
-    // /Users/antonio/Documents/Summer2018.pdf
-    private static void IsDirectoryWellFormatted(OptionResult result)
-    {
-    }
-
-    private static bool IsFullOrRelativePath(string path)
-    {
-        return false;
-    }
-
-    // Check depending on the OS
-    // Linux   -> Directories & Files are Case Sensitive
-    // OSx     -> Directories & Files are Case Sensitive
-    // Windows -> Directories & Files ...
-    // Perhaps one is passed as full and the other one as relative
-    private static bool AreSameFolders(string source, string replica)
-    {
-        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+        if (!exists)
         {
+            result.ErrorMessage = $"The directory {result.GetValueOrDefault<string>()} doesn't exist or it is not well formatted.";
         }
-        else if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux) || RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
-        {
-        }
-
-        return false;
     }
-    
-    // Check is passed path is correct as with the others
-    // Check as well if it contains filename ->
-    //      True Check if file type is txt -> True then use that one -> False then say that file format is not supported
-    //      False Create Default Log File -> What if there is already one with the same name
-    private static void IsLogFileCreated(OptionResult result) { }
+
+    private static void IsValidInterval(OptionResult result)
+    {
+        var value = result.GetValueOrDefault<int>();
+        if (value < 1)
+        {
+            result.ErrorMessage = "The interval must be greater than or equal to 1.";
+        }
+    }
 }
