@@ -135,8 +135,8 @@ class Program
     {
         // IsItWellFormatted
         // We don't care if it is full or relative
+        var exists = Directory.Exists(result.GetValueOrDefault<string>());
         
-        bool exists = File.Exists(result.GetValueOrDefault<string>());
     }
     
     // Windows

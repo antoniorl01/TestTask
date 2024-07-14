@@ -7,13 +7,12 @@ namespace TestTask.Classes
     
     internal class MainOperations
     {
-        // warning CS8618: Non-nullable field '_fileSystemWatcher' must contain a non-null value when exiting constructor. Consider declaring the field as nullable
-        private static FileSystemWatcher _fileSystemWatcher { get; set; } = null!;
-        private static Timer _timer;
-        private static List<(string, WatcherChangeTypes)> _changes = new List<(string, WatcherChangeTypes)>();
-        private static string _sourceFolder;
-        private static string _replicaFolder;
-        private static string _logFilePath;
+        private static FileSystemWatcher? _fileSystemWatcher;
+        private static Timer? _timer;
+        private static readonly List<(string, WatcherChangeTypes)> Changes = new List<(string, WatcherChangeTypes)>();
+        private static string? _sourceFolder;
+        private static string? _replicaFolder;
+        private static string? _logFilePath;
         private static int _interval;
         
         public static void MainCommand(string source, string replica, string log, int interval)
@@ -24,8 +23,11 @@ namespace TestTask.Classes
             _logFilePath = log;
             _interval = interval * 1000;
             
+            // Initial copy content from source to replica
+            CopyDirectoryContents(_sourceFolder, _replicaFolder);
+            
             // Initialize FileSystemWatcher
-            _fileSystemWatcher = new FileSystemWatcher(_sourceFolder);
+            _fileSystemWatcher = new FileSystemWatcher(source);
             _fileSystemWatcher.IncludeSubdirectories = true;
             _fileSystemWatcher.NotifyFilter = NotifyFilters.FileName | NotifyFilters.DirectoryName | NotifyFilters.LastWrite;
             _fileSystemWatcher.Changed += OnChanged;
@@ -41,43 +43,43 @@ namespace TestTask.Classes
             _timer.Enabled = true;
             
             Console.WriteLine("Monitoring started. Press 'q' to quit.");
-            while (Console.Read() != 'q'){}
+            Console.ReadKey();
         }
         
         
         private static void OnCreated(object sender, FileSystemEventArgs e)
         {
-            lock (_changes)
+            lock (Changes)
             {
-                _changes.Add((e.FullPath, WatcherChangeTypes.Created));
+                Changes.Add((e.FullPath, WatcherChangeTypes.Created));
                 LogChange(e.FullPath, WatcherChangeTypes.Created.ToString());
             }
         }
 
         private static void OnDeleted(object sender, FileSystemEventArgs e)
         {
-            lock (_changes)
+            lock (Changes)
             {
-                _changes.Add((e.FullPath, WatcherChangeTypes.Deleted));
+                Changes.Add((e.FullPath, WatcherChangeTypes.Deleted));
                 LogChange(e.FullPath, WatcherChangeTypes.Deleted.ToString());
             }
         }
 
         private static void OnChanged(object sender, FileSystemEventArgs e)
         {
-            lock (_changes)
+            lock (Changes)
             {
-                _changes.Add((e.FullPath, WatcherChangeTypes.Changed));
+                Changes.Add((e.FullPath, WatcherChangeTypes.Changed));
                 LogChange(e.FullPath, WatcherChangeTypes.Changed.ToString());
             }
         }
 
         private static void OnRenamed(object sender, RenamedEventArgs e)
         {
-            lock (_changes)
+            lock (Changes)
             {
-                _changes.Add((e.OldFullPath, WatcherChangeTypes.Deleted));
-                _changes.Add((e.FullPath, WatcherChangeTypes.Created));
+                Changes.Add((e.OldFullPath, WatcherChangeTypes.Deleted));
+                Changes.Add((e.FullPath, WatcherChangeTypes.Created));
                 LogChange(e.OldFullPath, WatcherChangeTypes.Deleted.ToString());
                 LogChange(e.FullPath, WatcherChangeTypes.Created.ToString());
             }
@@ -87,16 +89,16 @@ namespace TestTask.Classes
         {
             List<(string, WatcherChangeTypes)> changesCopy;
 
-            lock (_changes)
+            lock (Changes)
             {
-                changesCopy = [.._changes];
-                _changes.Clear();
+                changesCopy = [..Changes];
+                Changes.Clear();
             }
 
             foreach (var (path, changeType) in changesCopy)
             {
-                string relativePath = Path.GetRelativePath(_sourceFolder, path);
-                string replicaPath = Path.Combine(_replicaFolder, relativePath);
+                string relativePath = Path.GetRelativePath(_sourceFolder!, path);
+                string replicaPath = Path.Combine(_replicaFolder!, relativePath);
 
                 switch (changeType)
                 {
@@ -137,9 +139,25 @@ namespace TestTask.Classes
             string log = $"{DateTime.Now}: {change} - {path}{Environment.NewLine}";
             Console.WriteLine(log);
             
-            lock (_logFilePath)
+            lock (_logFilePath!)
             {
                 File.AppendAllText(_logFilePath, log);
+            }
+        }
+        
+        private static void CopyDirectoryContents(string source, string replica)
+        {
+            foreach (var file in Directory.GetFiles(source))
+            {
+                string destFile = Path.Combine(replica, Path.GetFileName(file));
+                File.Copy(file, destFile, true);
+            }
+
+            foreach (var directory in Directory.GetDirectories(source))
+            {
+                string destSubDir = Path.Combine(replica, Path.GetFileName(directory));
+                Directory.CreateDirectory(destSubDir);
+                CopyDirectoryContents(directory, destSubDir);
             }
         }
     }
