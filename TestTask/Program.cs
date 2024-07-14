@@ -1,35 +1,7 @@
-﻿/*
-   Test Task
-   Please implement a program that synchronizes two folders: source and
-   replica. The program should maintain a full, identical copy of source
-   folder at replica folder. Solve the test task by writing a program in C#.
-
-   Synchronization must be one-way: after the synchronization content of the
-   replica folder should be modified to exactly match content of the source
-   folder;
-
-   ✓ Synchronization should be performed periodically;
-
-   ✓ File creation/copying/removal operations should be logged to a file and to the
-   console output;
-
-   ✓ Folder paths, synchronization interval and log file path should be provided
-   using the command line arguments;
-
-   ✓ It is undesirable to use third-party libraries that implement folder
-   synchronization;
-
-   It is allowed (and recommended) to use external libraries implementing other
-   well-known algorithms. For example, there is no point in implementing yet
-   another function that calculates MD5 if you need it for the task – it is perfectly
-   acceptable to use a third-party (or built-in) library
-*/
-
-namespace TestTask;
+﻿namespace TestTask;
 
 using System.CommandLine.Builder;
 using System.CommandLine.Parsing;
-using System.IO;
 using System.CommandLine;
 
 class Program
@@ -43,7 +15,7 @@ class Program
         {
             IsRequired = true
         };
-        sourceFolderOption.AddValidator(IsExistingDirectory);
+        sourceFolderOption.AddValidator(Validator.IsExistingDirectory);
 
         var replicaFolderOption = new Option<string>(
             name: "--replica",
@@ -52,7 +24,7 @@ class Program
         {
             IsRequired = true
         };
-        replicaFolderOption.AddValidator(IsExistingDirectory);
+        replicaFolderOption.AddValidator(Validator.IsExistingDirectory);
 
         var logFileOption = new Option<string>(
             name: "--log",
@@ -62,7 +34,7 @@ class Program
             IsRequired = true
         };
         
-        logFileOption.AddValidator(IsExistingDirectory);
+        logFileOption.AddValidator(Validator.IsExistingDirectory);
 
         var intervalOption = new Option<int>(
             name: "--interval",
@@ -71,7 +43,7 @@ class Program
         {
             IsRequired = true
         };
-        intervalOption.AddValidator(IsValidInterval);
+        intervalOption.AddValidator(Validator.IsValidInterval);
         
 
         var rootCommand = new RootCommand("TestTask")
@@ -92,23 +64,5 @@ class Program
         Parser parser = commandLineBuilder.Build();
         
         await parser.InvokeAsync(args);
-    }
-
-    private static void IsExistingDirectory(OptionResult result)
-    {
-        var exists = Directory.Exists(result.GetValueOrDefault<string>());
-        if (!exists)
-        {
-            result.ErrorMessage = $"The directory {result.GetValueOrDefault<string>()} doesn't exist or it is not well formatted.";
-        }
-    }
-
-    private static void IsValidInterval(OptionResult result)
-    {
-        var value = result.GetValueOrDefault<int>();
-        if (value < 1)
-        {
-            result.ErrorMessage = "The interval must be greater than or equal to 1.";
-        }
     }
 }

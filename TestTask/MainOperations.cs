@@ -5,7 +5,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Timers;
 
-internal class MainOperations
+public class MainOperations
 {
     private static FileSystemWatcher? _fileSystemWatcher;
     private static Timer? _timer;
@@ -17,7 +17,7 @@ internal class MainOperations
     public static void MainCommand(string source, string replica, string log, int interval)
     {
         InitVariables(source, replica, log, interval);
-        CheckSourceAndReplicaAreNotSame();
+        Validator.CheckAreNotSameDirectory(_sourceFolder!, _replicaFolder!);
         CreateLogFile();
         CopyDirectoryContents(source, replica);
 
@@ -49,7 +49,7 @@ internal class MainOperations
         _timer.AutoReset = true;
         _timer.Enabled = true;
     }
-
+    
     private static void OnCreated(object sender, FileSystemEventArgs e)
     {
         lock (Changes)
@@ -159,38 +159,7 @@ internal class MainOperations
             CopyDirectoryContents(directory, destSubDir);
         }
     }
-
-    private static string CastToFullPath(string path)
-    {
-        return Path.GetFullPath(path);
-    }
-
-    private static void CheckSourceAndReplicaAreNotSame()
-    {
-        var sourceFullPath = CastToFullPath(_sourceFolder!);
-        var replicaFullPath = CastToFullPath(_replicaFolder!);
-        bool sameFolder = false;
-
-        if (OperatingSystem.IsWindows())
-        {
-            sameFolder = string.Equals(sourceFullPath, replicaFullPath, StringComparison.OrdinalIgnoreCase);
-            if (!sameFolder) return;
-        }
-
-        if (OperatingSystem.IsLinux() || OperatingSystem.IsMacOS())
-        {
-            sameFolder = string.Equals(sourceFullPath, replicaFullPath, StringComparison.Ordinal);
-            if (!sameFolder) return;
-        }
-
-        if (sameFolder)
-        {
-            throw new Exception("Source folder and Directory folder should not be the same");
-        }
-
-        throw new Exception("Script is only valid for Linux, MacOS and Windows");
-    }
-
+    
     private static void CreateLogFile()
     {
         if (!File.Exists(_logFilePath))
